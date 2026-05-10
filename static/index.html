@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Шар предсказаний</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      height: 100vh;
+      overflow: hidden;
+      background: #fff;
+      transition: background 1.4s ease;
+    }
+
+    body.dark { background: #0a0a0a; }
+
+    /* ══ СОСТОЯНИЕ 1: выбор языка ══ */
+    #screen-lang {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 52px;
+      transition: opacity 0.6s ease;
+    }
+    #screen-lang.out { opacity: 0; pointer-events: none; }
+
+    #lang-main-phrase {
+      font-size: clamp(22px, 3vw, 34px);
+      font-weight: 300;
+      letter-spacing: 4px;
+      color: #ccc;
+      text-align: center;
+    }
+
+    #lang-buttons { display: flex; gap: 28px; }
+
+    .lang-btn {
+      background: none; border: none;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 12px; letter-spacing: 3px;
+      color: #bbb; cursor: pointer;
+      padding: 5px 10px;
+      text-transform: uppercase;
+      transition: color 0.3s;
+    }
+    .lang-btn:hover { color: #000; }
+
+    /* ══ СОСТОЯНИЕ 2: онбординг-подсказки ══ */
+    #screen-onboarding {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+    #screen-onboarding.in { opacity: 1; pointer-events: all; }
+    #screen-onboarding.out { opacity: 0; pointer-events: none; }
+
+    /* подсказка истории — правый край */
+    #hint-history {
+      position: absolute;
+      right: 36px; top: 50%;
+      transform: translateY(-50%);
+      display: flex; align-items: center; gap: 10px;
+      color: #bbb; font-size: 12px; letter-spacing: 1.5px;
+    }
+    #hint-history .arrow { font-size: 20px; color: #ccc; }
+
+    /* подсказка инпута — снизу */
+    #hint-input {
+      position: absolute;
+      bottom: 56px; left: 50%;
+      transform: translateX(-50%);
+      color: #bbb; font-size: 12px; letter-spacing: 2px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* ══ СОСТОЯНИЕ 3: белый экран с фразой ══ */
+    #screen-white {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.8s ease;
+    }
+    #screen-white.in { opacity: 1; pointer-events: all; }
+    #screen-white.out { opacity: 0; pointer-events: none; }
+
+    #white-phrase {
+      font-size: clamp(18px, 2.5vw, 28px);
+      font-weight: 300; letter-spacing: 4px;
+      color: #ccc; text-align: center;
+      line-height: 2; user-select: none;
+    }
+
+    /* ══ СОСТОЯНИЕ 4: тёмный экран ══ */
+    #screen-dark {
+      position: fixed; inset: 0;
+      opacity: 0; pointer-events: none;
+      transition: opacity 1s ease;
+    }
+    #screen-dark.in { opacity: 1; pointer-events: all; }
+
+    /* ── Звёзды ── */
+    #stars {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff; font-size: 22px; letter-spacing: 14px;
+      opacity: 0; transition: opacity 0.3s ease;
+      white-space: nowrap;
+    }
+    #stars.visible { opacity: 1; }
+
+    /* ── Ответ по центру ── */
+    #answer {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: clamp(28px, 4.5vw, 52px);
+      font-weight: 300;
+      letter-spacing: 2px;
+      text-align: center;
+      max-width: 55%;
+      line-height: 1.7;
+      opacity: 0;
+      transition: opacity 1s ease;
+    }
+    #answer.visible { opacity: 1; }
+
+    /* ── Переключатель языка (тёмный) ── */
+    #lang-dark {
+      position: absolute; top: 28px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 20px;
+    }
+    .lang-dark-btn {
+      background: none; border: none;
+      color: rgba(255,255,255,0.2);
+      font-family: 'Georgia', serif;
+      font-size: 11px; letter-spacing: 2px;
+      text-transform: uppercase; cursor: pointer;
+      padding: 4px; transition: color 0.3s;
+    }
+    .lang-dark-btn.active { color: rgba(255,255,255,0.7); border-bottom: 1px solid rgba(255,255,255,0.3); }
+    .lang-dark-btn:hover { color: rgba(255,255,255,0.5); }
+
+    /* ── Инпут внизу ── */
+    #input-wrap {
+      position: absolute; bottom: 44px; left: 50%;
+      transform: translateX(-50%);
+      width: min(520px, 78vw);
+    }
+    #question-input {
+      width: 100%;
+      background: transparent; border: none;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      font-family: 'Georgia', serif;
+      font-size: 15px; letter-spacing: 1px;
+      padding: 10px 0; outline: none;
+      text-align: center;
+      transition: border-color 0.3s;
+    }
+    #question-input::placeholder { color: rgba(255,255,255,0.2); }
+    #question-input:focus { border-color: rgba(255,255,255,0.5); }
+
+    /* ── История ── */
+    #history-toggle {
+      position: fixed; right: 0; top: 50%;
+      transform: translateY(-50%);
+      width: 32px; height: 64px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 200;
+      opacity: 0; transition: opacity 0.5s ease;
+    }
+    #history-toggle.visible { opacity: 1; }
+    #history-toggle span {
+      color: rgba(255,255,255,0.25); font-size: 20px;
+      transition: color 0.3s, transform 0.3s;
+      display: block;
+    }
+    #history-toggle:hover span { color: rgba(255,255,255,0.7); }
+    #history-toggle.open span { transform: rotate(180deg); }
+
+    #history-panel {
+      position: fixed; right: -310px; top: 0;
+      width: 290px; height: 100vh;
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(12px);
+      border-left: 1px solid rgba(255,255,255,0.07);
+      padding: 40px 22px;
+      overflow-y: auto;
+      transition: right 0.4s ease;
+      z-index: 199;
+    }
+    #history-panel.open { right: 0; }
+
+    #history-title {
+      color: rgba(255,255,255,0.25); font-size: 10px;
+      letter-spacing: 3px; text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+    .history-item {
+      margin-bottom: 22px; padding-bottom: 22px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .history-q { color: rgba(255,255,255,0.3); font-size: 11px; margin-bottom: 5px; }
+    .history-a { color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.5; }
+
+    #history-panel::-webkit-scrollbar { width: 2px; }
+    #history-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+
+    /* ── Инпут на белом экране ── */
+    #white-input-wrap {
+      position: absolute; bottom: 44px; left: 50%;
+      transform: translateX(-50%);
+      width: min(520px, 78vw);
+      opacity: 0; transition: opacity 0.6s ease;
+    }
+    #white-input-wrap.visible { opacity: 1; }
+    #white-question-input {
+      width: 100%; background: transparent; border: none;
+      border-bottom: 1px solid rgba(0,0,0,0.15);
+      color: #333;
+      font-family: 'Georgia', serif;
+      font-size: 15px; letter-spacing: 1px;
+      padding: 10px 0; outline: none; text-align: center;
+      transition: border-color 0.3s;
+    }
+    #white-question-input::placeholder { color: rgba(0,0,0,0.2); }
+    #white-question-input:focus { border-color: rgba(0,0,0,0.4); }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Выбор языка -->
+  <div id="screen-lang">
+    <div id="lang-main-phrase">задай вопрос — получи ответ</div>
+    <div id="lang-buttons">
+      <button class="lang-btn" data-lang="ru">RU</button>
+      <button class="lang-btn" data-lang="en">EN</button>
+    </div>
+  </div>
+
+  <!-- 2. Онбординг -->
+  <div id="screen-onboarding">
+    <div id="hint-history">
+      <span id="hint-history-text"></span>
+      <span class="arrow">›</span>
+    </div>
+    <div id="hint-input" id="hint-input-text"></div>
+  </div>
+
+  <!-- 3. Белый экран с фразой + инпут -->
+  <div id="screen-white">
+    <div id="white-phrase"></div>
+    <div id="white-input-wrap">
+      <input id="white-question-input" type="text" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+
+  <!-- 4. Тёмный экран -->
+  <div id="screen-dark">
+    <div id="lang-dark">
+      <button class="lang-dark-btn" data-lang="ru">RU</button>
+      <button class="lang-dark-btn" data-lang="en">EN</button>
+    </div>
+    <div id="stars">·  ·  ·  ·  ·</div>
+    <div id="answer"></div>
+    <div id="input-wrap">
+      <input id="question-input" type="text" autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+
+  <!-- История -->
+  <div id="history-toggle"><span>‹</span></div>
+  <div id="history-panel">
+    <div id="history-title"></div>
+    <div id="history-list"></div>
+  </div>
+
+<script>
+  const T = {
+    ru: {
+      hintHistory: 'история вопросов',
+      hintInput:   'задать вопрос',
+      phrase:      'задай вопрос — получи ответ',
+      placeholder: 'задай вопрос...',
+      historyTitle:'история',
+      fallback:    'Туманно.'
+    },
+    en: {
+      hintHistory: 'question history',
+      hintInput:   'ask a question',
+      phrase:      'ask a question — get an answer',
+      placeholder: 'ask your question...',
+      historyTitle:'history',
+      fallback:    'Unclear.'
+    }
+  }
+
+  const STAR_FRAMES = ['·  ·  ·  ·  ·','✦  ·  ·  ·  ✦','✦  ✧  ·  ✧  ✦','✦  ✧  ✦  ✧  ✦']
+  const STAR_INTERVAL_MS = 5 * 60 * 1000 // 5 минут
+
+  let lang = 'ru'
+  let count = parseInt(localStorage.getItem('ball_count') || '0')
+  let history = JSON.parse(localStorage.getItem('ball_history') || '[]')
+  let lastQuestionTime = parseInt(localStorage.getItem('ball_last_time') || '0')
+  let state = 'lang' // lang → onboarding → white → dark
+  let fadeTimer = null
+  let onboardingTimer = null
+  let busy = false
+
+  // Элементы
+  const $ = id => document.getElementById(id)
+  const sLang  = $('screen-lang')
+  const sOnb   = $('screen-onboarding')
+  const sWhite = $('screen-white')
+  const sDark  = $('screen-dark')
+  const starsEl  = $('stars')
+  const answerEl = $('answer')
+  const inputEl  = $('question-input')
+  const wInputEl = $('white-question-input')
+
+  function setLang(l) {
+    lang = l
+    const t = T[l]
+    $('hint-history-text').textContent = t.hintHistory
+    $('hint-input').textContent = t.hintInput
+    $('white-phrase').textContent = t.phrase
+    inputEl.placeholder = t.placeholder
+    wInputEl.placeholder = t.placeholder
+    $('history-title').textContent = t.historyTitle
+    document.querySelectorAll('.lang-dark-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.lang === l))
+  }
+
+  // Переключение языка в тёмном режиме
+  document.querySelectorAll('.lang-dark-btn').forEach(btn =>
+    btn.addEventListener('click', e => { e.stopPropagation(); setLang(btn.dataset.lang) }))
+
+  // Шаг 1: выбор языка
+  document.querySelectorAll('.lang-btn').forEach(btn =>
+    btn.addEventListener('click', () => {
+      setLang(btn.dataset.lang)
+      goOnboarding()
+    }))
+
+  function goOnboarding() {
+    state = 'onboarding'
+    sLang.classList.add('out')
+    setTimeout(() => {
+      sOnb.classList.add('in')
+      $('white-input-wrap').classList.add('visible')
+      // автоисчезновение через 15 секунд
+      onboardingTimer = setTimeout(goWhite, 15000)
+    }, 400)
+    sOnb.addEventListener('click', goWhite, { once: true })
+  }
+
+  // Шаг 2: белый экран
+  function goWhite() {
+    if (state !== 'onboarding') return
+    state = 'white'
+    clearTimeout(onboardingTimer)
+    sOnb.classList.remove('in')
+    sOnb.classList.add('out')
+    setTimeout(() => {
+      sWhite.classList.add('in')
+      setTimeout(() => wInputEl.focus(), 300)
+    }, 300)
+  }
+
+  // Клик по белому экрану → тёмный (без вопроса)
+  sWhite.addEventListener('click', (e) => {
+    if (e.target === wInputEl) return
+    if (state !== 'white') return
+    goDark()
+  })
+
+  function goDark() {
+    state = 'dark'
+    sWhite.classList.remove('in')
+    sWhite.classList.add('out')
+    document.body.classList.add('dark')
+    setTimeout(() => {
+      sDark.classList.add('in')
+      inputEl.focus()
+    }, 600)
+    renderHistory()
+  }
+
+  // Отправка с белого экрана
+  wInputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && wInputEl.value.trim()) {
+      const q = wInputEl.value.trim()
+      wInputEl.value = ''
+      goDark()
+      setTimeout(() => sendQuestion(q), 800)
+    }
+  })
+
+  // Отправка с тёмного экрана
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && inputEl.value.trim() && !busy) {
+      sendQuestion(inputEl.value.trim())
+      inputEl.value = ''
+    }
+  })
+
+  // Нужны ли звёзды?
+  function needStars() {
+    if (history.length === 0) return true
+    return (Date.now() - lastQuestionTime) > STAR_INTERVAL_MS
+  }
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+  async function runStars() {
+    starsEl.classList.add('visible')
+    for (const frame of STAR_FRAMES) {
+      starsEl.textContent = frame
+      await sleep(500)
+    }
+    await sleep(200)
+    starsEl.classList.remove('visible')
+  }
+
+  function showAnswer(text) {
+    if (fadeTimer) clearTimeout(fadeTimer)
+    answerEl.classList.remove('visible')
+    setTimeout(() => {
+      answerEl.textContent = text
+      answerEl.classList.add('visible')
+      fadeTimer = setTimeout(() => answerEl.classList.remove('visible'), 15000)
+    }, 150)
+  }
+
+  async function sendQuestion(q) {
+    if (busy) return
+    busy = true
+    inputEl.disabled = true
+
+    if (needStars()) await runStars()
+
+    try {
+      count++
+      const res = await fetch('/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, count, lang })
+      })
+      const data = await res.json()
+      showAnswer(data.answer)
+
+      lastQuestionTime = Date.now()
+      history.push({ q, a: data.answer })
+      localStorage.setItem('ball_count', count)
+      localStorage.setItem('ball_history', JSON.stringify(history))
+      localStorage.setItem('ball_last_time', lastQuestionTime)
+      renderHistory()
+    } catch {
+      showAnswer(T[lang].fallback)
+    }
+
+    inputEl.disabled = false
+    inputEl.focus()
+    busy = false
+  }
+
+  // История
+  function renderHistory() {
+    const list = $('history-list')
+    list.innerHTML = ''
+    ;[...history].reverse().forEach(item => {
+      const d = document.createElement('div')
+      d.className = 'history-item'
+      d.innerHTML = `<div class="history-q">${item.q}</div><div class="history-a">${item.a}</div>`
+      list.appendChild(d)
+    })
+    if (history.length > 0) $('history-toggle').classList.add('visible')
+  }
+
+  $('history-toggle').addEventListener('click', () => {
+    const open = $('history-panel').classList.toggle('open')
+    $('history-toggle').classList.toggle('open', open)
+  })
+
+  // Инит
+  setLang('ru')
+  renderHistory()
+</script>
+</body>
+</html>
