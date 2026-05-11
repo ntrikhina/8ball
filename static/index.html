@@ -24,31 +24,30 @@
       position: fixed; inset: 0;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 52px;
+      gap: 0;
       transition: opacity 0.6s ease;
     }
     #screen-lang.out { opacity: 0; pointer-events: none; }
 
-    #lang-main-phrase {
-      font-size: clamp(22px, 3vw, 34px);
-      font-weight: 300;
-      letter-spacing: 4px;
-      color: #ccc;
-      text-align: center;
+    #lang-buttons {
+      display: flex;
+      gap: clamp(40px, 8vw, 100px);
+      align-items: center;
     }
-
-    #lang-buttons { display: flex; gap: 28px; }
 
     .lang-btn {
       background: none; border: none;
       font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: 12px; letter-spacing: 3px;
-      color: #bbb; cursor: pointer;
-      padding: 5px 10px;
+      font-size: clamp(52px, 10vw, 120px);
+      font-weight: 300;
+      letter-spacing: 6px;
+      color: #ccc; cursor: pointer;
+      padding: 10px 16px;
       text-transform: uppercase;
-      transition: color 0.3s;
+      transition: color 0.25s, transform 0.25s;
+      line-height: 1;
     }
-    .lang-btn:hover { color: #000; }
+    .lang-btn:hover { color: #000; transform: scale(1.08); }
 
     /* ══ СОСТОЯНИЕ 2: онбординг-подсказки ══ */
     #screen-onboarding {
@@ -121,16 +120,29 @@
       position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       color: #fff;
-      font-size: clamp(28px, 4.5vw, 52px);
-      font-weight: 300;
-      letter-spacing: 2px;
       text-align: center;
-      max-width: 55%;
-      line-height: 1.7;
+      max-width: 60%;
       opacity: 0;
       transition: opacity 1s ease;
     }
     #answer.visible { opacity: 1; }
+
+    .answer-quote {
+      display: block;
+      font-size: clamp(26px, 4vw, 50px);
+      font-weight: 300;
+      letter-spacing: 2px;
+      line-height: 1.6;
+    }
+    .answer-author {
+      display: block;
+      font-size: clamp(13px, 1.8vw, 24px);
+      font-weight: 300;
+      letter-spacing: 3px;
+      margin-top: 0.7em;
+      opacity: 0.45;
+      font-style: italic;
+    }
 
     /* ── Переключатель языка (тёмный) ── */
     #lang-dark {
@@ -240,7 +252,6 @@
 
   <!-- 1. Выбор языка -->
   <div id="screen-lang">
-    <div id="lang-main-phrase">задай вопрос — получи ответ</div>
     <div id="lang-buttons">
       <button class="lang-btn" data-lang="ru">RU</button>
       <button class="lang-btn" data-lang="en">EN</button>
@@ -435,7 +446,16 @@
     if (fadeTimer) clearTimeout(fadeTimer)
     answerEl.classList.remove('visible')
     setTimeout(() => {
-      answerEl.textContent = text
+      if (text.includes('\n')) {
+        const nl = text.indexOf('\n')
+        const quote = text.slice(0, nl)
+        const author = text.slice(nl + 1)
+        answerEl.innerHTML =
+          `<span class="answer-quote">${quote}</span>` +
+          `<span class="answer-author">${author}</span>`
+      } else {
+        answerEl.innerHTML = `<span class="answer-quote">${text}</span>`
+      }
       answerEl.classList.add('visible')
       fadeTimer = setTimeout(() => answerEl.classList.remove('visible'), 15000)
     }, 150)

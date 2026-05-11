@@ -13,7 +13,9 @@ from pydantic import BaseModel
 from responses import (
     SIMPLE_RU, ORACLE_RU, MERLIN_RU,
     SIMPLE_EN, ORACLE_EN, MERLIN_EN,
-    GREETINGS, GREETING_ANSWERS_RU, GREETING_ANSWERS_EN
+    GREETINGS, GREETING_ANSWERS_RU, GREETING_ANSWERS_EN,
+    COMFORT_TRIGGERS_RU, COMFORT_TRIGGERS_EN,
+    COMFORT_RU, COMFORT_EN
 )
 
 logging.basicConfig(
@@ -67,6 +69,11 @@ class AskRequest(BaseModel):
     count: int
     lang: str
 
+def is_comfort(text: str, lang: str) -> bool:
+    triggers = COMFORT_TRIGGERS_RU if lang == "ru" else COMFORT_TRIGGERS_EN
+    t = text.lower()
+    return any(w in t for w in triggers)
+
 def get_pool(count: int, lang: str) -> list:
     if count < 20:
         return SIMPLE_RU if lang == "ru" else SIMPLE_EN
@@ -103,6 +110,8 @@ async def ask(req: AskRequest):
     if cleaned in GREETINGS:
         pool = GREETING_ANSWERS_RU if lang == "ru" else GREETING_ANSWERS_EN
         answer = random.choice(pool)
+    elif is_comfort(q, lang):
+        answer = random.choice(COMFORT_RU if lang == "ru" else COMFORT_EN)
     elif use_ai(count):
         try:
             answer = ask_ai(q, lang)
